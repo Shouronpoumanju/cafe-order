@@ -492,7 +492,6 @@ window.renderHistory = () => {
 
 // ========== 設定 ==========
 window.renderSettingsEditor = () => {
-  document.getElementById('table-count-input').value = tableCount;
   document.getElementById('menu-editor').innerHTML = MENU.map((item, idx) => `
     <div class="menu-edit-row">
       <input class="edit-input emoji" value="${item.emoji}" id="emoji-${idx}" placeholder="絵文字" />
