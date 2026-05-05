@@ -11,6 +11,15 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Noto Sans JP', sans-serif; background: #faf7f4; min-height: 100vh; }
+    #lock-screen { position: fixed; inset: 0; background: #1c1917; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .lock-box { background: white; border-radius: 24px; padding: 40px 36px; width: 320px; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+    .lock-logo { font-family: 'Playfair Display', serif; font-size: 26px; color: #1c1917; margin-bottom: 6px; }
+    .lock-sub { font-size: 13px; color: #a8a29e; margin-bottom: 28px; }
+    .lock-input { width: 100%; border: 1.5px solid #e7e5e4; border-radius: 10px; padding: 12px 14px; font-family: inherit; font-size: 15px; outline: none; text-align: center; letter-spacing: 2px; transition: border-color 0.2s; margin-bottom: 12px; }
+    .lock-input:focus { border-color: #1c1917; }
+    .lock-btn { width: 100%; padding: 13px; background: #1c1917; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .lock-btn:hover { background: #44403c; }
+    .lock-error { font-size: 13px; color: #ef4444; margin-top: 10px; min-height: 18px; }
     header { background: white; border-bottom: 1px solid #e7e5e4; padding: 0 20px; position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; height: 56px; }
     .logo { font-family: 'Playfair Display', serif; font-size: 20px; color: #1c1917; }
     nav { display: flex; gap: 4px; }
@@ -116,6 +125,17 @@
   </nav>
 </header>
 
+
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-logo">☕ Café Order</div>
+    <div class="lock-sub">スタッフ専用システム</div>
+    <input class="lock-input" type="password" id="lock-input" placeholder="パスワード" onkeydown="if(event.key==='Enter')checkPassword()" autofocus />
+    <button class="lock-btn" onclick="checkPassword()">ログイン</button>
+    <div class="lock-error" id="lock-error"></div>
+  </div>
+</div>
+
 <div id="notif" class="notif" style="display:none"></div>
 
 <main>
@@ -194,6 +214,29 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+
+
+// ========== パスワード認証 ==========
+const PASSWORD = 'nizi2026';
+const SESSION_KEY = 'cafe_auth';
+
+function checkPassword() {
+  const input = document.getElementById('lock-input').value;
+  if (input === PASSWORD) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('lock-error').textContent = '';
+  } else {
+    document.getElementById('lock-error').textContent = 'パスワードが違います';
+    document.getElementById('lock-input').value = '';
+    document.getElementById('lock-input').focus();
+  }
+}
+
+// 既にログイン済みか確認
+if (sessionStorage.getItem(SESSION_KEY) === '1') {
+  document.getElementById('lock-screen').style.display = 'none';
+}
 
 // ========== 状態 ==========
 let currentView = 'order';
