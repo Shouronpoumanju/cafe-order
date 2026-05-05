@@ -34,9 +34,8 @@
 
     /* Cart */
     .cart-panel { background: white; border-radius: 18px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-    .table-select { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-    .tbl-btn { width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid #e7e5e4; background: white; cursor: pointer; font-weight: 600; font-size: 14px; color: #1c1917; transition: all 0.2s; font-family: inherit; }
-    .tbl-btn.active { background: #1c1917; color: white; border-color: #1c1917; }
+    .name-input { width: 100%; border: 1.5px solid #e7e5e4; border-radius: 10px; padding: 10px 12px; font-family: inherit; font-size: 14px; outline: none; margin-bottom: 16px; transition: border-color 0.2s; }
+    .name-input:focus { border-color: #1c1917; }
     .cart-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f5f5f4; }
     .qty-ctrl { display: flex; align-items: center; gap: 6px; }
     .qty-btn { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid #d6d3d1; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; color: #1c1917; font-family: inherit; }
@@ -132,8 +131,8 @@
       </div>
       <div class="cart-panel" style="position:sticky;top:70px;">
         <div style="font-size:15px;font-weight:700;color:#1c1917;margin-bottom:14px;">🛒 カート</div>
-        <div style="font-size:12px;color:#78716c;font-weight:500;margin-bottom:6px;">テーブル番号</div>
-        <div class="table-select" id="table-select"></div>
+        <div style="font-size:12px;color:#78716c;font-weight:500;margin-bottom:6px;">お名前</div>
+        <input class="name-input" id="customer-name" type="text" placeholder="お名前を入力してください" oninput="updateSubmitBtn()" />
         <div id="cart-items"><div class="empty-cart"><div style="font-size:32px;margin-bottom:6px;">🍽️</div>メニューを選んでください</div></div>
         <button class="submit-btn" id="submit-btn" onclick="submitOrder()" disabled>注文を送信する</button>
       </div>
@@ -173,13 +172,6 @@
         <div class="settings-label">メニュー一覧（編集・追加・削除できます）</div>
         <div id="menu-editor"></div>
         <button class="add-btn" onclick="addMenuItem()">＋ メニューを追加</button>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">テーブル数</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <input type="number" class="edit-input short" id="table-count-input" min="1" max="20" />
-          <span style="font-size:13px;color:#78716c;">テーブル</span>
-        </div>
       </div>
       <button class="save-btn" onclick="saveSettings()">保存する</button>
     </div>
@@ -244,9 +236,7 @@ onValue(ref(db, 'settings'), (snapshot) => {
   const s = snapshot.val();
   if (s) {
     if (s.menu) MENU = s.menu;
-    if (s.tableCount) tableCount = s.tableCount;
     renderMenu();
-    renderTableSelect();
     renderSettingsEditor();
   }
 });
@@ -298,7 +288,8 @@ function renderCart() {
   const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id === Number(id)), qty }));
   const total = items.reduce((s, i) => s + i.price * i.qty, 0);
   const btn = document.getElementById('submit-btn');
-  btn.disabled = items.length === 0;
+  const name = document.getElementById('customer-name')?.value.trim() || '';
+  btn.disabled = items.length === 0 || name === '';
   if (items.length === 0) {
     document.getElementById('cart-items').innerHTML = '<div class="empty-cart"><div style="font-size:32px;margin-bottom:6px;">🍽️</div>メニューを選んでください</div>';
     return;
@@ -321,30 +312,31 @@ function renderCart() {
   `;
 }
 
-// ========== テーブル選択 ==========
-function renderTableSelect() {
-  document.getElementById('table-select').innerHTML = Array.from({length: tableCount}, (_, i) => i + 1).map(n =>
-    `<button class="tbl-btn ${String(n) === selectedTable ? 'active' : ''}" onclick="selectTable('${n}')">${n}</button>`
-  ).join('');
-}
-window.selectTable = (n) => { selectedTable = n; renderTableSelect(); };
+// ========== 名前入力 ==========
+window.updateSubmitBtn = () => {
+  const name = document.getElementById('customer-name').value.trim();
+  const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id === Number(id)), qty }));
+  document.getElementById('submit-btn').disabled = items.length === 0 || name === '';
+};
 
 // ========== 注文送信 ==========
 window.submitOrder = () => {
+  const name = document.getElementById('customer-name').value.trim();
   const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id === Number(id)), qty }));
-  if (items.length === 0) return;
+  if (items.length === 0 || name === '') return;
   const total = items.reduce((s, i) => s + i.price * i.qty, 0);
   push(ref(db, 'orders'), {
-    table: selectedTable,
+    table: name,
     items: items.map(i => ({ id: i.id, name: i.name, emoji: i.emoji, price: i.price, qty: i.qty })),
     total,
     status: 'pending',
     createdAt: new Date().toISOString(),
   });
   cart = {};
+  document.getElementById('customer-name').value = '';
   renderMenu();
   renderCart();
-  showNotif(`テーブル${selectedTable}の注文を送信しました！`);
+  showNotif(`${name}さんの注文を送信しました！`);
 };
 
 // ========== キッチン ==========
@@ -372,7 +364,7 @@ function renderKitchen() {
     return `
       <div class="order-card" style="border-left-color:${s.color}">
         <div class="order-header">
-          <span class="order-table">テーブル ${order.table} <span style="font-size:12px;color:#a8a29e;font-weight:400"></span></span>
+          <span class="order-table">${order.table} <span style="font-size:12px;color:#a8a29e;font-weight:400">さん</span></span>
           <span class="status-badge" style="background:${s.bg};color:${s.color}">${s.label}</span>
         </div>
         <div class="order-items">
@@ -438,7 +430,7 @@ window.renderHistory = () => {
             <div class="hist-row">
               <div class="hist-meta">
                 <div class="hist-time">${timeStr}</div>
-                <div class="hist-table">テーブル ${o.table}</div>
+                <div class="hist-table">${o.table} さん</div>
               </div>
               <div class="hist-items">
                 ${o.items.map(i => `<span class="hist-tag">${i.emoji} ${i.name} ×${i.qty}</span>`).join('')}
@@ -487,8 +479,7 @@ window.saveSettings = () => {
     category: document.getElementById(`cat-${idx}`).value,
     price: Number(document.getElementById(`price-${idx}`).value),
   }));
-  const newTableCount = Number(document.getElementById('table-count-input').value);
-  update(ref(db, 'settings'), { menu: newMenu, tableCount: newTableCount });
+  update(ref(db, 'settings'), { menu: newMenu });
   showNotif('設定を保存しました！');
 };
 
@@ -504,7 +495,6 @@ window.showNotif = (msg) => {
 
 // ========== 初期化 ==========
 renderMenu();
-renderTableSelect();
 renderCart();
 </script>
 </body>
