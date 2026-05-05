@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Café Order</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1c1917" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: #faf7f4; min-height: 100vh; }
+    #lock-screen { position: fixed; inset: 0; background: #1c1917; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .lock-box { background: white; border-radius: 24px; padding: 40px 36px; width: 320px; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+    .lock-logo { font-family: 'Playfair Display', serif; font-size: 26px; color: #1c1917; margin-bottom: 6px; }
+    .lock-sub { font-size: 13px; color: #a8a29e; margin-bottom: 28px; }
+    .lock-input { width: 100%; border: 1.5px solid #e7e5e4; border-radius: 10px; padding: 12px 14px; font-family: inherit; font-size: 15px; outline: none; text-align: center; letter-spacing: 2px; transition: border-color 0.2s; margin-bottom: 12px; }
+    .lock-input:focus { border-color: #1c1917; }
+    .lock-btn { width: 100%; padding: 13px; background: #1c1917; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .lock-btn:hover { background: #44403c; }
+    .lock-error { font-size: 13px; color: #ef4444; margin-top: 10px; min-height: 18px; }
+    header { background: white; border-bottom: 1px solid #e7e5e4; padding: 0 20px; position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; height: 56px; }
+    .logo { font-family: 'Playfair Display', serif; font-size: 20px; color: #1c1917; }
+    nav { display: flex; gap: 4px; }
+    .nav-btn { background: none; border: none; cursor: pointer; padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 500; border-radius: 20px; color: #78716c; transition: all 0.2s; position: relative; }
+    .nav-btn.active { background: #1c1917; color: white; }
+    .badge { position: absolute; top: 2px; right: 2px; background: #ef4444; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    main { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+    .section-title { font-size: 20px; font-weight: 700; color: #1c1917; margin-bottom: 16px; }
+
+    /* Menu */
+    .cat-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .cat-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e7e5e4; background: white; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: #78716c; transition: all 0.2s; }
+    .cat-btn.active { background: #1c1917; color: white; border-color: #1c1917; }
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .menu-card { background: white; border-radius: 14px; padding: 14px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: relative; }
+    .menu-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+    .menu-emoji { font-size: 28px; margin-bottom: 6px; }
+    .menu-name { font-weight: 600; font-size: 13px; color: #1c1917; margin-bottom: 2px; }
+    .menu-price { font-size: 12px; color: #78716c; }
+    .menu-qty { position: absolute; top: 8px; right: 8px; background: #1c1917; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+    /* Cart */
+    .cart-panel { background: white; border-radius: 18px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .name-input { width: 100%; border: 1.5px solid #e7e5e4; border-radius: 10px; padding: 10px 12px; font-family: inherit; font-size: 14px; outline: none; margin-bottom: 16px; transition: border-color 0.2s; }
+    .name-input:focus { border-color: #1c1917; }
+    .cart-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f5f5f4; }
+    .qty-ctrl { display: flex; align-items: center; gap: 6px; }
+    .qty-btn { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid #d6d3d1; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; color: #1c1917; font-family: inherit; }
+    .qty-btn:hover { background: #1c1917; color: white; border-color: #1c1917; }
+    .cart-total { display: flex; justify-content: space-between; padding: 12px 0 0; font-weight: 700; font-size: 16px; color: #1c1917; }
+    .submit-btn { width: 100%; padding: 14px; background: #1c1917; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s; margin-top: 16px; }
+    .submit-btn:hover { background: #44403c; }
+    .submit-btn:disabled { background: #d6d3d1; cursor: not-allowed; }
+    .empty-cart { text-align: center; color: #a8a29e; padding: 28px 0; font-size: 13px; }
+
+    /* Layout */
+    .order-layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+    @media (max-width: 640px) { .order-layout { grid-template-columns: 1fr; } }
+
+    /* Kitchen */
+    .kitchen-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+    .order-card { background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid; }
+    .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .order-table { font-size: 17px; font-weight: 700; color: #1c1917; }
+    .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .order-items { margin-bottom: 12px; }
+    .order-item-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; border-bottom: 1px dashed #f5f5f4; color: #44403c; }
+    .order-footer { display: flex; justify-content: space-between; align-items: center; }
+    .order-time { font-size: 11px; color: #a8a29e; }
+    .status-select { border: 1.5px solid #e7e5e4; border-radius: 8px; padding: 6px 10px; font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer; background: white; outline: none; }
+    .empty-state { text-align: center; color: #a8a29e; padding: 60px 0; }
+    .empty-icon { font-size: 44px; margin-bottom: 10px; }
+
+    /* History */
+    .history-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .date-input { border: 1.5px solid #e7e5e4; border-radius: 10px; padding: 8px 12px; font-family: inherit; font-size: 13px; outline: none; }
+    .clear-btn { background: none; border: none; color: #78716c; cursor: pointer; font-size: 18px; }
+    .day-group { margin-bottom: 28px; }
+    .day-header { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 2px solid #1c1917; margin-bottom: 12px; }
+    .day-title { font-size: 16px; font-weight: 700; color: #1c1917; }
+    .day-count { font-size: 12px; color: #78716c; }
+    .day-total { margin-left: auto; font-weight: 700; color: #1c1917; }
+    .hist-row { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+    .hist-meta { min-width: 80px; }
+    .hist-time { font-size: 11px; color: #a8a29e; }
+    .hist-table { font-weight: 700; font-size: 14px; color: #1c1917; }
+    .hist-items { flex: 1; display: flex; flex-wrap: wrap; gap: 5px; }
+    .hist-tag { background: #f5f5f4; border-radius: 20px; padding: 2px 8px; font-size: 11px; color: #44403c; }
+    .hist-right { text-align: right; min-width: 80px; }
+    .hist-total { font-weight: 700; font-size: 14px; color: #1c1917; }
+    .hist-badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; margin-top: 3px; }
+
+    /* Notification */
+    .notif { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 12px; font-weight: 500; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 999; animation: slideIn 0.3s ease; }
+    @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* Settings */
+    .settings-panel { background: white; border-radius: 18px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); max-width: 600px; }
+    .settings-section { margin-bottom: 28px; }
+    .settings-label { font-size: 13px; font-weight: 600; color: #78716c; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .menu-edit-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .edit-input { border: 1.5px solid #e7e5e4; border-radius: 8px; padding: 8px 10px; font-family: inherit; font-size: 13px; outline: none; flex: 1; }
+    .edit-input:focus { border-color: #1c1917; }
+    .edit-input.short { width: 80px; flex: none; }
+    .edit-input.emoji { width: 52px; flex: none; text-align: center; }
+    .del-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 18px; padding: 4px; }
+    .add-btn { background: none; border: 1.5px dashed #d6d3d1; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 13px; color: #78716c; cursor: pointer; width: 100%; margin-top: 4px; transition: all 0.2s; }
+    .add-btn:hover { border-color: #1c1917; color: #1c1917; }
+    .save-btn { padding: 10px 24px; background: #1c1917; color: white; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .save-btn:hover { background: #44403c; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">☕ Café Order</div>
+  <nav>
+    <button class="nav-btn active" onclick="switchView('order')" id="btn-order">注文する</button>
+    <button class="nav-btn" onclick="switchView('kitchen')" id="btn-kitchen">🍳 キッチン<span class="badge" id="kitchen-badge" style="display:none"></span></button>
+    <button class="nav-btn" onclick="switchView('history')" id="btn-history">📋 履歴</button>
+    <button class="nav-btn" onclick="switchView('settings')" id="btn-settings">⚙️ 設定</button>
+  </nav>
+</header>
+
+
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-logo">☕ Café Order</div>
+    <div class="lock-sub">スタッフ専用システム</div>
+    <input class="lock-input" type="password" id="lock-input" placeholder="パスワード" onkeydown="if(event.key==='Enter')checkPassword()" autofocus />
+    <button class="lock-btn" onclick="checkPassword()">ログイン</button>
+    <div class="lock-error" id="lock-error"></div>
+  </div>
+</div>
+
+<div id="notif" class="notif" style="display:none"></div>
+
+<main>
+  <!-- 注文画面 -->
+  <div id="view-order">
+    <div class="order-layout">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="section-title">メニュー</div>
+          <div class="cat-filters" id="cat-filters"></div>
+        </div>
+        <div class="menu-grid" id="menu-grid"></div>
+      </div>
+      <div class="cart-panel" style="position:sticky;top:70px;">
+        <div style="font-size:15px;font-weight:700;color:#1c1917;margin-bottom:14px;">🛒 カート</div>
+        <div style="font-size:12px;color:#78716c;font-weight:500;margin-bottom:6px;">お名前</div>
+        <input class="name-input" id="customer-name" type="text" placeholder="お名前を入力してください" oninput="updateSubmitBtn()" />
+        <div id="cart-items"><div class="empty-cart"><div style="font-size:32px;margin-bottom:6px;">🍽️</div>メニューを選んでください</div></div>
+        <button class="submit-btn" id="submit-btn" onclick="submitOrder()" disabled>注文を送信する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- キッチン画面 -->
+  <div id="view-kitchen" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div class="section-title">キッチンビュー</div>
+      <div class="kitchen-tabs">
+        <button class="cat-btn active" onclick="setKitchenTab('active')" id="ktab-active">受付中・調理中</button>
+        <button class="cat-btn" onclick="setKitchenTab('done')" id="ktab-done">完了</button>
+      </div>
+    </div>
+    <div class="orders-grid" id="orders-grid"></div>
+  </div>
+
+  <!-- 履歴画面 -->
+  <div id="view-history" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <div class="section-title" style="margin:0">注文履歴</div>
+      <div class="history-filter">
+        <span style="font-size:13px;color:#78716c;">日付で絞り込み</span>
+        <input type="date" class="date-input" id="hist-date" oninput="renderHistory()" />
+        <button class="clear-btn" onclick="document.getElementById('hist-date').value='';renderHistory()">×</button>
+      </div>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- 設定画面 -->
+  <div id="view-settings" style="display:none">
+    <div class="section-title">メニュー設定</div>
+    <div class="settings-panel">
+      <div class="settings-section">
+        <div class="settings-label">メニュー一覧（編集・追加・削除できます）</div>
+        <div id="menu-editor"></div>
+        <button class="add-btn" onclick="addMenuItem()">＋ メニューを追加</button>
+      </div>
+      <button class="save-btn" onclick="saveSettings()">保存する</button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBtFk7WLXU94c6VCCAulpMt7o0dO4LAx9o",
+  authDomain: "nizi-cafe-order.firebaseapp.com",
+  databaseURL: "https://nizi-cafe-order-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nizi-cafe-order",
+  storageBucket: "nizi-cafe-order.firebasestorage.app",
+  messagingSenderId: "1030606968045",
+  appId: "1:1030606968045:web:f8f10396c6d52ac3b0e8e4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+
+// ========== パスワード認証 ==========
+const PASSWORD = 'nizi2026';
+const SESSION_KEY = 'cafe_auth';
+
+function checkPassword() {
+  const input = document.getElementById('lock-input').value;
+  if (input === PASSWORD) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('lock-error').textContent = '';
+  } else {
+    document.getElementById('lock-error').textContent = 'パスワードが違います';
+    document.getElementById('lock-input').value = '';
+    document.getElementById('lock-input').focus();
+  }
+}
+
+// 既にログイン済みか確認
+if (sessionStorage.getItem(SESSION_KEY) === '1') {
+  document.getElementById('lock-screen').style.display = 'none';
+}
+
+// ========== 状態 ==========
+let currentView = 'order';
+let kitchenTab = 'active';
+let cart = {};
+let selectedTable = '1';
+let orders = {};
+let tableCount = 6;
+
+let MENU = [
+  { id: 1, name: "カフェラテ", price: 550, category: "ドリンク", emoji: "☕" },
+  { id: 2, name: "カプチーノ", price: 580, category: "ドリンク", emoji: "☕" },
+  { id: 3, name: "アイスコーヒー", price: 480, category: "ドリンク", emoji: "🧊" },
+  { id: 4, name: "オレンジジュース", price: 420, category: "ドリンク", emoji: "🍊" },
+  { id: 5, name: "クロワッサン", price: 320, category: "フード", emoji: "🥐" },
+  { id: 6, name: "パンケーキ", price: 780, category: "フード", emoji: "🥞" },
+  { id: 7, name: "アボカドトースト", price: 850, category: "フード", emoji: "🥑" },
+  { id: 8, name: "チーズケーキ", price: 620, category: "スイーツ", emoji: "🍰" },
+  { id: 9, name: "ティラミス", price: 680, category: "スイーツ", emoji: "🍮" },
+];
+
+const STATUS = {
+  pending:   { label: "受付中", color: "#f59e0b", bg: "#fef3c7" },
+  preparing: { label: "調理中", color: "#3b82f6", bg: "#dbeafe" },
+  ready:     { label: "提供可", color: "#10b981", bg: "#d1fae5" },
+  done:      { label: "完了",   color: "#6b7280", bg: "#f3f4f6" },
+};
+
+let filterCategory = 'すべて';
+
+// ========== Firebase リアルタイム同期 ==========
+onValue(ref(db, 'orders'), (snapshot) => {
+  orders = snapshot.val() || {};
+  renderKitchen();
+  renderHistory();
+  updateKitchenBadge();
+});
+
+onValue(ref(db, 'settings'), (snapshot) => {
+  const s = snapshot.val();
+  if (s) {
+    if (s.menu) MENU = s.menu;
+    renderMenu();
+    renderSettingsEditor();
+  }
+});
+
+// ========== ビュー切替 ==========
+window.switchView = (v) => {
+  ['order','kitchen','history','settings'].forEach(n => {
+    document.getElementById('view-'+n).style.display = n === v ? '' : 'none';
+    document.getElementById('btn-'+n).classList.toggle('active', n === v);
+  });
+  currentView = v;
+  if (v === 'kitchen') renderKitchen();
+  if (v === 'history') renderHistory();
+  if (v === 'settings') renderSettingsEditor();
+};
+
+// ========== メニュー描画 ==========
+function renderMenu() {
+  const cats = ['すべて', ...new Set(MENU.map(m => m.category))];
+  document.getElementById('cat-filters').innerHTML = cats.map(c =>
+    `<button class="cat-btn ${c === filterCategory ? 'active' : ''}" onclick="setCategory('${c}')">${c}</button>`
+  ).join('');
+  const filtered = filterCategory === 'すべて' ? MENU : MENU.filter(m => m.category === filterCategory);
+  document.getElementById('menu-grid').innerHTML = filtered.map(item => `
+    <div class="menu-card" onclick="addToCart(${item.id})">
+      <div class="menu-emoji">${item.emoji}</div>
+      <div class="menu-name">${item.name}</div>
+      <div class="menu-price">¥${item.price.toLocaleString()}</div>
+      ${cart[item.id] ? `<div class="menu-qty">${cart[item.id]}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+window.setCategory = (c) => { filterCategory = c; renderMenu(); };
+
+// ========== カート ==========
+window.addToCart = (id) => {
+  cart[id] = (cart[id] || 0) + 1;
+  renderMenu();
+  renderCart();
+};
+window.removeFromCart = (id) => {
+  if (cart[id] > 1) cart[id]--; else delete cart[id];
+  renderMenu();
+  renderCart();
+};
+
+function renderCart() {
+  const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id === Number(id)), qty }));
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const btn = document.getElementById('submit-btn');
+  const name = document.getElementById('customer-name')?.value.trim() || '';
+  btn.disabled = items.length === 0 || name === '';
+  if (items.length === 0) {
+    document.getElementById('cart-items').innerHTML = '<div class="empty-cart"><div style="font-size:32px;margin-bottom:6px;">🍽️</div>メニューを選んでください</div>';
+    return;
+  }
+  document.getElementById('cart-items').innerHTML = `
+    ${items.map(i => `
+      <div class="cart-item">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#1c1917">${i.emoji} ${i.name}</div>
+          <div style="font-size:12px;color:#78716c">¥${i.price.toLocaleString()}</div>
+        </div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="removeFromCart(${i.id})">−</button>
+          <span style="font-size:14px;font-weight:600;min-width:16px;text-align:center">${i.qty}</span>
+          <button class="qty-btn" onclick="addToCart(${i.id})">+</button>
+        </div>
+      </div>
+    `).join('')}
+    <div class="cart-total"><span>合計</span><span>¥${total.toLocaleString()}</span></div>
+  `;
+}
+
+// ========== 名前入力 ==========
+window.updateSubmitBtn = () => {
+  const name = document.getElementById('customer-name').value.trim();
+  const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id === Number(id)), qty }));
+  document.getElementById('submit-btn').disabled = items.length === 0 || name === '';
+};
+
+// ========== 注文送信 ==========
+window.submitOrder = () => {
+  const name = document.getElementById('customer-name').value.trim();
+  const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id === Number(id)), qty }));
+  if (items.length === 0 || name === '') return;
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  push(ref(db, 'orders'), {
+    table: name,
+    items: items.map(i => ({ id: i.id, name: i.name, emoji: i.emoji, price: i.price, qty: i.qty })),
+    total,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  });
+  cart = {};
+  document.getElementById('customer-name').value = '';
+  renderMenu();
+  renderCart();
+  showNotif(`${name}さんの注文を送信しました！`);
+};
+
+// ========== キッチン ==========
+window.setKitchenTab = (tab) => {
+  kitchenTab = tab;
+  document.getElementById('ktab-active').classList.toggle('active', tab === 'active');
+  document.getElementById('ktab-done').classList.toggle('active', tab === 'done');
+  renderKitchen();
+};
+
+function renderKitchen() {
+  const all = Object.entries(orders).map(([key, o]) => ({ key, ...o }))
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const filtered = all.filter(o => kitchenTab === 'active' ? o.status !== 'done' : o.status === 'done');
+  const grid = document.getElementById('orders-grid');
+  if (!grid) return;
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${kitchenTab === 'active' ? '✨' : '📭'}</div><div>${kitchenTab === 'active' ? '現在の注文はありません' : '完了した注文はありません'}</div></div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(order => {
+    const s = STATUS[order.status];
+    const t = new Date(order.createdAt);
+    const timeStr = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    return `
+      <div class="order-card" style="border-left-color:${s.color}">
+        <div class="order-header">
+          <span class="order-table">${order.table} <span style="font-size:12px;color:#a8a29e;font-weight:400">さん</span></span>
+          <span class="status-badge" style="background:${s.bg};color:${s.color}">${s.label}</span>
+        </div>
+        <div class="order-items">
+          ${order.items.map(i => `<div class="order-item-row"><span>${i.emoji} ${i.name}</span><span style="font-weight:600">×${i.qty}</span></div>`).join('')}
+        </div>
+        <div class="order-footer">
+          <span class="order-time">${timeStr}に受付</span>
+          <select class="status-select" onchange="updateStatus('${order.key}', this.value)">
+            ${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${order.status === k ? 'selected' : ''}>${v.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+window.updateStatus = (key, status) => {
+  update(ref(db, `orders/${key}`), { status });
+};
+
+function updateKitchenBadge() {
+  const count = Object.values(orders).filter(o => o.status !== 'done').length;
+  const badge = document.getElementById('kitchen-badge');
+  if (count > 0) { badge.style.display = 'flex'; badge.textContent = count; }
+  else badge.style.display = 'none';
+}
+
+// ========== 履歴 ==========
+window.renderHistory = () => {
+  const dateFilter = document.getElementById('hist-date')?.value;
+  let all = Object.entries(orders).map(([key, o]) => ({ key, ...o }))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (dateFilter) {
+    all = all.filter(o => o.createdAt.startsWith(dateFilter));
+  }
+  const grouped = {};
+  all.forEach(o => {
+    const d = new Date(o.createdAt);
+    const key = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(o);
+  });
+  const el = document.getElementById('history-list');
+  if (!el) return;
+  if (all.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div>履歴がありません</div></div>`;
+    return;
+  }
+  el.innerHTML = Object.entries(grouped).map(([date, dayOrders]) => {
+    const dayTotal = dayOrders.reduce((s, o) => s + o.total, 0);
+    return `
+      <div class="day-group">
+        <div class="day-header">
+          <span class="day-title">${date}</span>
+          <span class="day-count">${dayOrders.length}件</span>
+          <span class="day-total">¥${dayTotal.toLocaleString()}</span>
+        </div>
+        ${dayOrders.map(o => {
+          const s = STATUS[o.status];
+          const t = new Date(o.createdAt);
+          const timeStr = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+          return `
+            <div class="hist-row">
+              <div class="hist-meta">
+                <div class="hist-time">${timeStr}</div>
+                <div class="hist-table">${o.table} さん</div>
+              </div>
+              <div class="hist-items">
+                ${o.items.map(i => `<span class="hist-tag">${i.emoji} ${i.name} ×${i.qty}</span>`).join('')}
+              </div>
+              <div class="hist-right">
+                <div class="hist-total">¥${o.total.toLocaleString()}</div>
+                <span class="hist-badge" style="background:${s.bg};color:${s.color}">${s.label}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }).join('');
+};
+
+// ========== 設定 ==========
+window.renderSettingsEditor = () => {
+  document.getElementById('menu-editor').innerHTML = MENU.map((item, idx) => `
+    <div class="menu-edit-row">
+      <input class="edit-input emoji" value="${item.emoji}" id="emoji-${idx}" placeholder="絵文字" />
+      <input class="edit-input" value="${item.name}" id="name-${idx}" placeholder="商品名" />
+      <input class="edit-input" value="${item.category}" id="cat-${idx}" placeholder="カテゴリ" />
+      <input class="edit-input short" type="number" value="${item.price}" id="price-${idx}" placeholder="価格" />
+      <button class="del-btn" onclick="deleteMenuItem(${idx})">🗑</button>
+    </div>
+  `).join('');
+};
+
+window.addMenuItem = () => {
+  MENU.push({ id: Date.now(), name: "", price: 0, category: "", emoji: "🍽️" });
+  renderSettingsEditor();
+};
+
+window.deleteMenuItem = (idx) => {
+  MENU.splice(idx, 1);
+  renderSettingsEditor();
+};
+
+window.saveSettings = () => {
+  const newMenu = MENU.map((item, idx) => ({
+    id: item.id,
+    emoji: document.getElementById(`emoji-${idx}`).value,
+    name: document.getElementById(`name-${idx}`).value,
+    category: document.getElementById(`cat-${idx}`).value,
+    price: Number(document.getElementById(`price-${idx}`).value),
+  }));
+  update(ref(db, 'settings'), { menu: newMenu });
+  showNotif('設定を保存しました！');
+};
+
+// ========== 通知 ==========
+window.showNotif = (msg) => {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = '#1c1917';
+  el.style.color = 'white';
+  setTimeout(() => el.style.display = 'none', 3000);
+};
+
+// ========== 初期化 ==========
+renderMenu();
+renderCart();
+</script>
+</body>
+</html>
