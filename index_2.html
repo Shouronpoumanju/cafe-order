@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Café Order</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: #faf7f4; min-height: 100vh; }
+
+    /* ロック画面 */
+    #lock-screen {
+      position: fixed; inset: 0; background: #1c1917;
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .lock-box {
+      background: white; border-radius: 24px; padding: 40px 36px;
+      width: 300px; text-align: center;
+    }
+    .lock-logo { font-family: 'Playfair Display', serif; font-size: 24px; color: #1c1917; margin-bottom: 4px; }
+    .lock-sub { font-size: 13px; color: #a8a29e; margin-bottom: 24px; }
+    .lock-input {
+      width: 100%; border: 1.5px solid #e7e5e4; border-radius: 10px;
+      padding: 12px; font-size: 15px; text-align: center; outline: none;
+      margin-bottom: 10px; font-family: inherit;
+    }
+    .lock-input:focus { border-color: #1c1917; }
+    .lock-btn {
+      width: 100%; padding: 13px; background: #1c1917; color: white;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+    }
+    .lock-error { color: #ef4444; font-size: 13px; margin-top: 8px; min-height: 20px; }
+
+    /* ヘッダー */
+    header {
+      background: white; border-bottom: 1px solid #e7e5e4;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: 56px; position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: 'Playfair Display', serif; font-size: 20px; color: #1c1917; }
+    nav { display: flex; gap: 4px; }
+    .nav-btn {
+      background: none; border: none; cursor: pointer; padding: 8px 14px;
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      border-radius: 20px; color: #78716c; position: relative;
+    }
+    .nav-btn.active { background: #1c1917; color: white; }
+    .nav-badge {
+      position: absolute; top: 2px; right: 2px;
+      background: #ef4444; color: white; border-radius: 50%;
+      width: 16px; height: 16px; font-size: 10px; font-weight: 700;
+      display: none; align-items: center; justify-content: center;
+    }
+
+    /* メイン */
+    main { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .page-title { font-size: 20px; font-weight: 700; color: #1c1917; margin-bottom: 16px; }
+
+    /* カテゴリフィルター */
+    .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .filter-btn {
+      padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e7e5e4;
+      background: white; cursor: pointer; font-family: inherit;
+      font-size: 12px; font-weight: 500; color: #78716c;
+    }
+    .filter-btn.active { background: #1c1917; color: white; border-color: #1c1917; }
+
+    /* メニューグリッド */
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .menu-card {
+      background: white; border-radius: 14px; padding: 14px;
+      cursor: pointer; border: 2px solid transparent;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: relative;
+    }
+    .menu-card:active { transform: scale(0.97); }
+    .menu-emoji { font-size: 28px; margin-bottom: 6px; }
+    .menu-name { font-weight: 600; font-size: 13px; color: #1c1917; margin-bottom: 2px; }
+    .menu-price { font-size: 12px; color: #78716c; }
+    .menu-count {
+      position: absolute; top: 8px; right: 8px;
+      background: #1c1917; color: white; border-radius: 50%;
+      width: 22px; height: 22px; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* 注文レイアウト */
+    .order-layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+    @media (max-width: 640px) { .order-layout { grid-template-columns: 1fr; } }
+
+    /* カートパネル */
+    .cart-panel {
+      background: white; border-radius: 18px; padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08); position: sticky; top: 70px;
+    }
+    .cart-title { font-size: 15px; font-weight: 700; color: #1c1917; margin-bottom: 14px; }
+    .input-label { font-size: 12px; color: #78716c; font-weight: 500; margin-bottom: 6px; }
+    .name-input {
+      width: 100%; border: 1.5px solid #e7e5e4; border-radius: 10px;
+      padding: 10px 12px; font-family: inherit; font-size: 14px;
+      outline: none; margin-bottom: 14px;
+    }
+    .name-input:focus { border-color: #1c1917; }
+    .cart-empty { text-align: center; color: #a8a29e; padding: 24px 0; font-size: 13px; }
+    .cart-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid #f5f5f4;
+    }
+    .cart-item-name { font-size: 13px; font-weight: 600; color: #1c1917; }
+    .cart-item-price { font-size: 12px; color: #78716c; }
+    .qty-ctrl { display: flex; align-items: center; gap: 6px; }
+    .qty-btn {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 1.5px solid #d6d3d1; background: white; cursor: pointer;
+      font-size: 14px; color: #1c1917; font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qty-num { font-size: 14px; font-weight: 600; min-width: 16px; text-align: center; }
+    .cart-total {
+      display: flex; justify-content: space-between;
+      padding: 12px 0 0; font-weight: 700; font-size: 16px; color: #1c1917;
+    }
+    .submit-btn {
+      width: 100%; padding: 14px; background: #1c1917; color: white;
+      border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+      cursor: pointer; font-family: inherit; margin-top: 14px;
+    }
+    .submit-btn:disabled { background: #d6d3d1; cursor: not-allowed; }
+
+    /* キッチン */
+    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+    .order-card {
+      background: white; border-radius: 14px; padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid;
+    }
+    .order-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .order-name { font-size: 17px; font-weight: 700; color: #1c1917; }
+    .status-tag { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .order-items { margin-bottom: 12px; }
+    .order-item-row {
+      display: flex; justify-content: space-between;
+      padding: 4px 0; font-size: 12px; border-bottom: 1px dashed #f5f5f4; color: #44403c;
+    }
+    .order-foot { display: flex; justify-content: space-between; align-items: center; }
+    .order-time { font-size: 11px; color: #a8a29e; }
+    .status-select {
+      border: 1.5px solid #e7e5e4; border-radius: 8px; padding: 6px 10px;
+      font-family: inherit; font-size: 12px; background: white; outline: none; cursor: pointer;
+    }
+    .empty-state { text-align: center; color: #a8a29e; padding: 60px 0; }
+    .empty-icon { font-size: 44px; margin-bottom: 10px; }
+
+    /* 履歴 */
+    .hist-filters { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .date-input {
+      border: 1.5px solid #e7e5e4; border-radius: 10px;
+      padding: 8px 12px; font-family: inherit; font-size: 13px; outline: none;
+    }
+    .clear-date { background: none; border: none; color: #78716c; cursor: pointer; font-size: 18px; }
+    .day-group { margin-bottom: 28px; }
+    .day-head {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 8px; border-bottom: 2px solid #1c1917; margin-bottom: 12px;
+    }
+    .day-title { font-size: 16px; font-weight: 700; color: #1c1917; }
+    .day-count { font-size: 12px; color: #78716c; }
+    .day-total { margin-left: auto; font-weight: 700; color: #1c1917; }
+    .hist-row {
+      background: white; border-radius: 12px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 14px; margin-bottom: 8px; flex-wrap: wrap;
+    }
+    .hist-time { font-size: 11px; color: #a8a29e; }
+    .hist-name { font-weight: 700; font-size: 14px; color: #1c1917; }
+    .hist-items { flex: 1; display: flex; flex-wrap: wrap; gap: 5px; }
+    .hist-tag { background: #f5f5f4; border-radius: 20px; padding: 2px 8px; font-size: 11px; color: #44403c; }
+    .hist-right { text-align: right; min-width: 80px; }
+    .hist-total { font-weight: 700; font-size: 14px; color: #1c1917; }
+    .hist-badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; margin-top: 3px; }
+
+    /* 設定 */
+    .settings-box { background: white; border-radius: 18px; padding: 24px; max-width: 600px; }
+    .settings-label { font-size: 13px; font-weight: 600; color: #78716c; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .menu-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .edit-input { border: 1.5px solid #e7e5e4; border-radius: 8px; padding: 8px 10px; font-family: inherit; font-size: 13px; outline: none; flex: 1; }
+    .edit-emoji { width: 52px; flex: none; text-align: center; }
+    .edit-price { width: 80px; flex: none; }
+    .edit-input:focus { border-color: #1c1917; }
+    .del-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 18px; padding: 4px; }
+    .add-item-btn {
+      width: 100%; padding: 10px; border: 1.5px dashed #d6d3d1; border-radius: 8px;
+      background: none; font-family: inherit; font-size: 13px; color: #78716c; cursor: pointer; margin-top: 4px;
+    }
+    .save-btn {
+      padding: 10px 24px; background: #1c1917; color: white; border: none;
+      border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 20px;
+    }
+
+    /* 通知 */
+    #notif {
+      position: fixed; top: 20px; right: 20px; padding: 12px 20px;
+      background: #1c1917; color: white; border-radius: 12px;
+      font-weight: 500; font-size: 14px; z-index: 9998; display: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ロック画面 -->
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-logo">☕ Café Order</div>
+    <div class="lock-sub">スタッフ専用システム</div>
+    <input class="lock-input" type="password" id="lock-input" placeholder="パスワードを入力" />
+    <button class="lock-btn" id="lock-btn">ログイン</button>
+    <div class="lock-error" id="lock-error"></div>
+  </div>
+</div>
+
+<!-- 通知 -->
+<div id="notif"></div>
+
+<!-- ヘッダー -->
+<header>
+  <div class="logo">☕ Café Order</div>
+  <nav>
+    <button class="nav-btn active" id="btn-order" onclick="showView('order')">注文する</button>
+    <button class="nav-btn" id="btn-kitchen" onclick="showView('kitchen')">
+      🍳 キッチン
+      <span class="nav-badge" id="kitchen-badge"></span>
+    </button>
+    <button class="nav-btn" id="btn-history" onclick="showView('history')">📋 履歴</button>
+    <button class="nav-btn" id="btn-settings" onclick="showView('settings')">⚙️ 設定</button>
+  </nav>
+</header>
+
+<main>
+  <!-- 注文画面 -->
+  <div class="view active" id="view-order">
+    <div class="order-layout">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="page-title" style="margin:0">メニュー</div>
+          <div class="filters" id="cat-filters"></div>
+        </div>
+        <div class="menu-grid" id="menu-grid"></div>
+      </div>
+      <div class="cart-panel">
+        <div class="cart-title">🛒 カート</div>
+        <div class="input-label">お名前</div>
+        <input class="name-input" id="customer-name" type="text" placeholder="名前を入力してください" />
+        <div id="cart-body"></div>
+        <button class="submit-btn" id="submit-btn" disabled>注文を送信する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- キッチン画面 -->
+  <div class="view" id="view-kitchen">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div class="page-title" style="margin:0">キッチンビュー</div>
+      <div class="filters">
+        <button class="filter-btn active" id="ktab-active" onclick="setKTab('active')">受付中・調理中</button>
+        <button class="filter-btn" id="ktab-done" onclick="setKTab('done')">完了</button>
+      </div>
+    </div>
+    <div class="orders-grid" id="orders-grid"></div>
+  </div>
+
+  <!-- 履歴画面 -->
+  <div class="view" id="view-history">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <div class="page-title" style="margin:0">注文履歴</div>
+      <div class="hist-filters">
+        <span style="font-size:13px;color:#78716c">日付で絞り込み</span>
+        <input type="date" class="date-input" id="hist-date" />
+        <button class="clear-date" id="clear-date">×</button>
+      </div>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- 設定画面 -->
+  <div class="view" id="view-settings">
+    <div class="page-title">メニュー設定</div>
+    <div class="settings-box">
+      <div class="settings-label">メニュー一覧</div>
+      <div id="menu-editor"></div>
+      <button class="add-item-btn" id="add-item-btn">＋ メニューを追加</button>
+      <br/>
+      <button class="save-btn" id="save-btn">保存する</button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// Firebase設定
+const app = initializeApp({
+  apiKey: "AIzaSyBtFk7WLXU94c6VCCAulpMt7o0dO4LAx9o",
+  authDomain: "nizi-cafe-order.firebaseapp.com",
+  databaseURL: "https://nizi-cafe-order-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nizi-cafe-order",
+  storageBucket: "nizi-cafe-order.firebasestorage.app",
+  messagingSenderId: "1030606968045",
+  appId: "1:1030606968045:web:f8f10396c6d52ac3b0e8e4"
+});
+const db = getDatabase(app);
+
+// ===== パスワード認証 =====
+const PASSWORD = 'nizi2026';
+const lockScreen = document.getElementById('lock-screen');
+const lockInput = document.getElementById('lock-input');
+const lockError = document.getElementById('lock-error');
+
+function checkAuth() {
+  if (sessionStorage.getItem('auth') === '1') {
+    lockScreen.style.display = 'none';
+  }
+}
+checkAuth();
+
+document.getElementById('lock-btn').addEventListener('click', () => {
+  if (lockInput.value === PASSWORD) {
+    sessionStorage.setItem('auth', '1');
+    lockScreen.style.display = 'none';
+    lockError.textContent = '';
+  } else {
+    lockError.textContent = 'パスワードが違います';
+    lockInput.value = '';
+    lockInput.focus();
+  }
+});
+
+lockInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('lock-btn').click();
+});
+
+// ===== 状態 =====
+let cart = {};
+let orders = {};
+let kitchenTab = 'active';
+let filterCat = 'すべて';
+let MENU = [
+  { id: 1, emoji: "☕", name: "カフェラテ",       category: "ドリンク", price: 550 },
+  { id: 2, emoji: "☕", name: "カプチーノ",        category: "ドリンク", price: 580 },
+  { id: 3, emoji: "🧊", name: "アイスコーヒー",    category: "ドリンク", price: 480 },
+  { id: 4, emoji: "🍊", name: "オレンジジュース",  category: "ドリンク", price: 420 },
+  { id: 5, emoji: "🥐", name: "クロワッサン",      category: "フード",   price: 320 },
+  { id: 6, emoji: "🥞", name: "パンケーキ",        category: "フード",   price: 780 },
+  { id: 7, emoji: "🥑", name: "アボカドトースト",  category: "フード",   price: 850 },
+  { id: 8, emoji: "🍰", name: "チーズケーキ",      category: "スイーツ", price: 620 },
+  { id: 9, emoji: "🍮", name: "ティラミス",        category: "スイーツ", price: 680 },
+];
+
+const STATUS = {
+  pending:   { label: "受付中", color: "#f59e0b", bg: "#fef3c7" },
+  preparing: { label: "調理中", color: "#3b82f6", bg: "#dbeafe" },
+  ready:     { label: "提供可", color: "#10b981", bg: "#d1fae5" },
+  done:      { label: "完了",   color: "#6b7280", bg: "#f3f4f6" },
+};
+
+// ===== Firebase同期 =====
+onValue(ref(db, 'orders'), snap => {
+  orders = snap.val() || {};
+  renderKitchen();
+  renderHistory();
+  updateBadge();
+});
+
+onValue(ref(db, 'settings'), snap => {
+  const s = snap.val();
+  if (s && s.menu) { MENU = s.menu; renderMenu(); renderEditor(); }
+});
+
+// ===== 画面切替 =====
+window.showView = (v) => {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.getElementById('btn-' + v).classList.add('active');
+  if (v === 'kitchen') renderKitchen();
+  if (v === 'history') renderHistory();
+  if (v === 'settings') renderEditor();
+};
+
+// ===== メニュー =====
+function renderMenu() {
+  const cats = ['すべて', ...new Set(MENU.map(m => m.category))];
+  document.getElementById('cat-filters').innerHTML = cats.map(c =>
+    `<button class="filter-btn${c === filterCat ? ' active' : ''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
+  const list = filterCat === 'すべて' ? MENU : MENU.filter(m => m.category === filterCat);
+  document.getElementById('menu-grid').innerHTML = list.map(item =>
+    `<div class="menu-card" onclick="addCart(${item.id})">
+      <div class="menu-emoji">${item.emoji}</div>
+      <div class="menu-name">${item.name}</div>
+      <div class="menu-price">¥${item.price.toLocaleString()}</div>
+      ${cart[item.id] ? `<div class="menu-count">${cart[item.id]}</div>` : ''}
+    </div>`
+  ).join('');
+}
+
+window.setCat = (c) => { filterCat = c; renderMenu(); };
+
+// ===== カート =====
+window.addCart = (id) => {
+  cart[id] = (cart[id] || 0) + 1;
+  renderMenu(); renderCart();
+};
+window.removeCart = (id) => {
+  if (cart[id] > 1) cart[id]--; else delete cart[id];
+  renderMenu(); renderCart();
+};
+
+function renderCart() {
+  const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id == id), qty }));
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const name = document.getElementById('customer-name').value.trim();
+  document.getElementById('submit-btn').disabled = items.length === 0 || name === '';
+
+  if (items.length === 0) {
+    document.getElementById('cart-body').innerHTML =
+      '<div class="cart-empty"><div style="font-size:30px;margin-bottom:6px">🍽️</div>メニューを選んでください</div>';
+    return;
+  }
+  document.getElementById('cart-body').innerHTML =
+    items.map(i =>
+      `<div class="cart-item">
+        <div>
+          <div class="cart-item-name">${i.emoji} ${i.name}</div>
+          <div class="cart-item-price">¥${i.price.toLocaleString()}</div>
+        </div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="removeCart(${i.id})">−</button>
+          <span class="qty-num">${i.qty}</span>
+          <button class="qty-btn" onclick="addCart(${i.id})">+</button>
+        </div>
+      </div>`
+    ).join('') +
+    `<div class="cart-total"><span>合計</span><span>¥${total.toLocaleString()}</span></div>`;
+}
+
+document.getElementById('customer-name').addEventListener('input', renderCart);
+
+// ===== 注文送信 =====
+document.getElementById('submit-btn').addEventListener('click', () => {
+  const name = document.getElementById('customer-name').value.trim();
+  const items = Object.entries(cart).map(([id, qty]) => ({ ...MENU.find(m => m.id == id), qty }));
+  if (!name || items.length === 0) return;
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  push(ref(db, 'orders'), {
+    name, total, status: 'pending',
+    createdAt: new Date().toISOString(),
+    items: items.map(i => ({ id: i.id, name: i.name, emoji: i.emoji, price: i.price, qty: i.qty })),
+  });
+  cart = {};
+  document.getElementById('customer-name').value = '';
+  renderMenu(); renderCart();
+  showNotif(`${name}さんの注文を送信しました！`);
+});
+
+// ===== キッチン =====
+window.setKTab = (tab) => {
+  kitchenTab = tab;
+  document.getElementById('ktab-active').classList.toggle('active', tab === 'active');
+  document.getElementById('ktab-done').classList.toggle('active', tab === 'done');
+  renderKitchen();
+};
+
+function renderKitchen() {
+  const all = Object.entries(orders)
+    .map(([key, o]) => ({ key, ...o }))
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const list = all.filter(o => kitchenTab === 'active' ? o.status !== 'done' : o.status === 'done');
+  const grid = document.getElementById('orders-grid');
+  if (!grid) return;
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-icon">${kitchenTab === 'active' ? '✨' : '📭'}</div>
+      <div>${kitchenTab === 'active' ? '現在の注文はありません' : '完了した注文はありません'}</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = list.map(o => {
+    const s = STATUS[o.status];
+    const t = new Date(o.createdAt);
+    const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    return `<div class="order-card" style="border-left-color:${s.color}">
+      <div class="order-head">
+        <span class="order-name">${o.name} <span style="font-size:12px;color:#a8a29e;font-weight:400">さん</span></span>
+        <span class="status-tag" style="background:${s.bg};color:${s.color}">${s.label}</span>
+      </div>
+      <div class="order-items">
+        ${o.items.map(i => `<div class="order-item-row"><span>${i.emoji} ${i.name}</span><span style="font-weight:600">×${i.qty}</span></div>`).join('')}
+      </div>
+      <div class="order-foot">
+        <span class="order-time">${time}に受付</span>
+        <select class="status-select" onchange="changeStatus('${o.key}', this.value)">
+          ${Object.entries(STATUS).map(([k,v]) => `<option value="${k}"${o.status===k?' selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.changeStatus = (key, status) => update(ref(db, `orders/${key}`), { status });
+
+function updateBadge() {
+  const count = Object.values(orders).filter(o => o.status !== 'done').length;
+  const badge = document.getElementById('kitchen-badge');
+  badge.style.display = count > 0 ? 'flex' : 'none';
+  badge.textContent = count;
+}
+
+// ===== 履歴 =====
+function renderHistory() {
+  const dateVal = document.getElementById('hist-date')?.value;
+  let all = Object.entries(orders)
+    .map(([key, o]) => ({ key, ...o }))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (dateVal) all = all.filter(o => o.createdAt.startsWith(dateVal));
+
+  const grouped = {};
+  all.forEach(o => {
+    const d = new Date(o.createdAt);
+    const k = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+    if (!grouped[k]) grouped[k] = [];
+    grouped[k].push(o);
+  });
+
+  const el = document.getElementById('history-list');
+  if (!el) return;
+  if (all.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div>履歴がありません</div></div>';
+    return;
+  }
+  el.innerHTML = Object.entries(grouped).map(([date, list]) => {
+    const dayTotal = list.reduce((s, o) => s + o.total, 0);
+    return `<div class="day-group">
+      <div class="day-head">
+        <span class="day-title">${date}</span>
+        <span class="day-count">${list.length}件</span>
+        <span class="day-total">¥${dayTotal.toLocaleString()}</span>
+      </div>
+      ${list.map(o => {
+        const s = STATUS[o.status];
+        const t = new Date(o.createdAt);
+        const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+        return `<div class="hist-row">
+          <div style="min-width:80px">
+            <div class="hist-time">${time}</div>
+            <div class="hist-name">${o.name} さん</div>
+          </div>
+          <div class="hist-items">${o.items.map(i => `<span class="hist-tag">${i.emoji} ${i.name} ×${i.qty}</span>`).join('')}</div>
+          <div class="hist-right">
+            <div class="hist-total">¥${o.total.toLocaleString()}</div>
+            <span class="hist-badge" style="background:${s.bg};color:${s.color}">${s.label}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('hist-date').addEventListener('input', renderHistory);
+document.getElementById('clear-date').addEventListener('click', () => {
+  document.getElementById('hist-date').value = '';
+  renderHistory();
+});
+
+// ===== 設定 =====
+function renderEditor() {
+  document.getElementById('menu-editor').innerHTML = MENU.map((item, i) =>
+    `<div class="menu-row">
+      <input class="edit-input edit-emoji" id="e-emoji-${i}" value="${item.emoji}" placeholder="絵文字" />
+      <input class="edit-input" id="e-name-${i}" value="${item.name}" placeholder="商品名" />
+      <input class="edit-input" id="e-cat-${i}" value="${item.category}" placeholder="カテゴリ" />
+      <input class="edit-input edit-price" type="number" id="e-price-${i}" value="${item.price}" placeholder="価格" />
+      <button class="del-btn" onclick="delItem(${i})">🗑</button>
+    </div>`
+  ).join('');
+}
+
+window.delItem = (i) => { MENU.splice(i, 1); renderEditor(); };
+
+document.getElementById('add-item-btn').addEventListener('click', () => {
+  MENU.push({ id: Date.now(), emoji: '🍽️', name: '', category: '', price: 0 });
+  renderEditor();
+});
+
+document.getElementById('save-btn').addEventListener('click', () => {
+  MENU = MENU.map((item, i) => ({
+    id: item.id,
+    emoji: document.getElementById(`e-emoji-${i}`).value,
+    name: document.getElementById(`e-name-${i}`).value,
+    category: document.getElementById(`e-cat-${i}`).value,
+    price: Number(document.getElementById(`e-price-${i}`).value),
+  }));
+  update(ref(db, 'settings'), { menu: MENU });
+  showNotif('メニューを保存しました！');
+});
+
+// ===== 通知 =====
+let notifTimer;
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// ===== 初期化 =====
+renderMenu();
+renderCart();
+</script>
+</body>
+</html>
