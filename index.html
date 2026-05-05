@@ -198,6 +198,40 @@
       border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 20px;
     }
 
+
+    /* モーダル */
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center; z-index: 500;
+    }
+    .modal-box {
+      background: white; border-radius: 20px; padding: 28px;
+      width: 360px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+    }
+    .modal-title { font-size: 17px; font-weight: 700; color: #1c1917; margin-bottom: 20px; }
+    .modal-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f5f5f4; }
+    .modal-item-name { font-size: 13px; font-weight: 600; color: #1c1917; }
+    .modal-item-price { font-size: 12px; color: #78716c; }
+    .modal-footer { display: flex; gap: 8px; margin-top: 20px; }
+    .modal-cancel { flex: 1; padding: 12px; border: 1.5px solid #e7e5e4; border-radius: 10px; background: white; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; color: #78716c; }
+    .modal-save { flex: 1; padding: 12px; background: #1c1917; color: white; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .modal-delete { width: 100%; padding: 12px; background: #ef4444; color: white; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+
+    /* 履歴の編集ボタン */
+    .hist-edit-btn {
+      background: none; border: 1.5px solid #e7e5e4; border-radius: 8px;
+      padding: 4px 10px; font-size: 12px; color: #78716c; cursor: pointer;
+      font-family: inherit; white-space: nowrap;
+    }
+    .hist-edit-btn:hover { border-color: #1c1917; color: #1c1917; }
+
+    /* 履歴追加ボタン */
+    .add-order-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 10px 18px; background: #1c1917; color: white;
+      border: none; border-radius: 10px; font-family: inherit;
+      font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 20px;
+    }
     /* 通知 */
     #notif {
       position: fixed; top: 20px; right: 20px; padding: 12px 20px;
@@ -279,6 +313,7 @@
         <button class="clear-date" id="clear-date">×</button>
       </div>
     </div>
+    <button class="add-order-btn" onclick="openAddModal()">＋ 注文を追加する</button>
     <div id="history-list"></div>
   </div>
 
@@ -297,7 +332,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 // Firebase設定
 const app = initializeApp({
@@ -554,12 +589,13 @@ function renderHistory() {
         return `<div class="hist-row">
           <div style="min-width:80px">
             <div class="hist-time">${time}</div>
-            <div class="hist-name">${o.name} さん</div>
+            <div class="hist-name">${o.name || o.table || '不明'} さん</div>
           </div>
           <div class="hist-items">${o.items.map(i => `<span class="hist-tag">${i.emoji} ${i.name} ×${i.qty}</span>`).join('')}</div>
-          <div class="hist-right">
+          <div class="hist-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
             <div class="hist-total">¥${o.total.toLocaleString()}</div>
             <span class="hist-badge" style="background:${s.bg};color:${s.color}">${s.label}</span>
+            <button class="hist-edit-btn" onclick="openEditModal('${o.key}')">✏️ 編集・削除</button>
           </div>
         </div>`;
       }).join('')}
@@ -615,9 +651,205 @@ function showNotif(msg) {
   notifTimer = setTimeout(() => el.style.display = 'none', 3000);
 }
 
+
+// ===== 履歴編集モーダル =====
+let editingKey = null;
+let editItems = [];
+let addItems = [];
+
+window.openEditModal = (key) => {
+  editingKey = key;
+  const o = orders[key];
+  editItems = o.items.map(i => ({ ...i }));
+  document.getElementById('modal-name').value = o.name || o.table || '';
+  document.getElementById('modal-title').textContent = `${o.name || o.table || '不明'}さんの注文を編集`;
+  renderModalItems();
+  renderModalSelect();
+  document.getElementById('edit-modal').style.display = 'flex';
+};
+
+window.closeModal = () => {
+  document.getElementById('edit-modal').style.display = 'none';
+  editingKey = null; editItems = [];
+};
+
+function renderModalItems() {
+  document.getElementById('modal-items').innerHTML = editItems.map((i, idx) =>
+    `<div class="modal-row">
+      <div>
+        <div class="modal-item-name">${i.emoji} ${i.name}</div>
+        <div class="modal-item-price">¥${i.price.toLocaleString()}</div>
+      </div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="modalQty(${idx},-1)">−</button>
+        <span class="qty-num">${i.qty}</span>
+        <button class="qty-btn" onclick="modalQty(${idx},1)">+</button>
+      </div>
+    </div>`
+  ).join('') || '<div style="color:#a8a29e;font-size:13px;padding:8px 0">商品がありません</div>';
+}
+
+function renderModalSelect() {
+  const sel = document.getElementById('modal-add-select');
+  sel.innerHTML = '<option value="">選択してください</option>' +
+    MENU.map(m => `<option value="${m.id}">${m.emoji} ${m.name} ¥${m.price.toLocaleString()}</option>`).join('');
+}
+
+window.modalQty = (idx, delta) => {
+  editItems[idx].qty += delta;
+  if (editItems[idx].qty <= 0) editItems.splice(idx, 1);
+  renderModalItems();
+};
+
+window.modalAddItem = () => {
+  const sel = document.getElementById('modal-add-select');
+  const id = Number(sel.value);
+  if (!id) return;
+  const item = MENU.find(m => m.id === id);
+  const existing = editItems.find(i => i.id === id);
+  if (existing) existing.qty++;
+  else editItems.push({ ...item, qty: 1 });
+  renderModalItems();
+  sel.value = '';
+};
+
+window.saveOrder = () => {
+  if (editItems.length === 0) return alert('商品を追加してください');
+  const name = document.getElementById('modal-name').value.trim();
+  if (!name) return alert('名前を入力してください');
+  const total = editItems.reduce((s, i) => s + i.price * i.qty, 0);
+  update(ref(db, `orders/${editingKey}`), {
+    name, total,
+    items: editItems.map(i => ({ id: i.id, name: i.name, emoji: i.emoji, price: i.price, qty: i.qty }))
+  });
+  closeModal();
+  showNotif('注文を更新しました！');
+};
+
+window.deleteOrder = () => {
+  if (!confirm('この注文を削除しますか？')) return;
+  remove(ref(db, `orders/${editingKey}`));
+  closeModal();
+  showNotif('注文を削除しました');
+};
+
+// ===== 新規注文追加モーダル =====
+window.openAddModal = () => {
+  addItems = [];
+  document.getElementById('add-modal-name').value = '';
+  renderAddModalItems();
+  renderAddModalSelect();
+  document.getElementById('add-modal').style.display = 'flex';
+};
+
+window.closeAddModal = () => {
+  document.getElementById('add-modal').style.display = 'none';
+  addItems = [];
+};
+
+function renderAddModalItems() {
+  document.getElementById('add-modal-items').innerHTML = addItems.map((i, idx) =>
+    `<div class="modal-row">
+      <div>
+        <div class="modal-item-name">${i.emoji} ${i.name}</div>
+        <div class="modal-item-price">¥${i.price.toLocaleString()}</div>
+      </div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="addModalQty(${idx},-1)">−</button>
+        <span class="qty-num">${i.qty}</span>
+        <button class="qty-btn" onclick="addModalQty(${idx},1)">+</button>
+      </div>
+    </div>`
+  ).join('') || '<div style="color:#a8a29e;font-size:13px;padding:8px 0">商品がありません</div>';
+}
+
+function renderAddModalSelect() {
+  const sel = document.getElementById('add-modal-select');
+  sel.innerHTML = '<option value="">選択してください</option>' +
+    MENU.map(m => `<option value="${m.id}">${m.emoji} ${m.name} ¥${m.price.toLocaleString()}</option>`).join('');
+}
+
+window.addModalQty = (idx, delta) => {
+  addItems[idx].qty += delta;
+  if (addItems[idx].qty <= 0) addItems.splice(idx, 1);
+  renderAddModalItems();
+};
+
+window.addModalAddItem = () => {
+  const sel = document.getElementById('add-modal-select');
+  const id = Number(sel.value);
+  if (!id) return;
+  const item = MENU.find(m => m.id === id);
+  const existing = addItems.find(i => i.id === id);
+  if (existing) existing.qty++;
+  else addItems.push({ ...item, qty: 1 });
+  renderAddModalItems();
+  sel.value = '';
+};
+
+window.saveNewOrder = () => {
+  if (addItems.length === 0) return alert('商品を追加してください');
+  const name = document.getElementById('add-modal-name').value.trim();
+  if (!name) return alert('名前を入力してください');
+  const total = addItems.reduce((s, i) => s + i.price * i.qty, 0);
+  push(ref(db, 'orders'), {
+    name, total, status: 'pending',
+    createdAt: new Date().toISOString(),
+    items: addItems.map(i => ({ id: i.id, name: i.name, emoji: i.emoji, price: i.price, qty: i.qty }))
+  });
+  closeAddModal();
+  showNotif(`${name}さんの注文を追加しました！`);
+};
+
 // ===== 初期化 =====
 renderMenu();
 renderCart();
 </script>
+
+<!-- 注文編集モーダル -->
+<div class="modal-bg" id="edit-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">注文を編集</div>
+    <div style="margin-bottom:14px;">
+      <div class="input-label">お名前</div>
+      <input class="name-input" id="modal-name" type="text" placeholder="名前を入力" style="margin-bottom:0" />
+    </div>
+    <div style="font-size:12px;color:#78716c;font-weight:500;margin-bottom:8px;">注文内容</div>
+    <div id="modal-items"></div>
+    <div style="margin-top:12px;font-size:12px;color:#78716c;font-weight:500;margin-bottom:6px;">メニューから追加</div>
+    <select id="modal-add-select" style="width:100%;border:1.5px solid #e7e5e4;border-radius:8px;padding:8px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;">
+      <option value="">選択してください</option>
+    </select>
+    <button onclick="modalAddItem()" style="width:100%;padding:8px;border:1.5px dashed #d6d3d1;border-radius:8px;background:none;font-family:inherit;font-size:13px;color:#78716c;cursor:pointer;margin-bottom:4px;">＋ 追加する</button>
+    <div class="modal-footer">
+      <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="modal-save" onclick="saveOrder()">保存する</button>
+    </div>
+    <button class="modal-delete" onclick="deleteOrder()">🗑 この注文を削除する</button>
+  </div>
+</div>
+
+<!-- 新規注文追加モーダル -->
+<div class="modal-bg" id="add-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">新しい注文を追加</div>
+    <div style="margin-bottom:14px;">
+      <div class="input-label">お名前</div>
+      <input class="name-input" id="add-modal-name" type="text" placeholder="名前を入力" style="margin-bottom:0" />
+    </div>
+    <div style="font-size:12px;color:#78716c;font-weight:500;margin-bottom:8px;">注文内容</div>
+    <div id="add-modal-items"></div>
+    <div style="margin-top:12px;font-size:12px;color:#78716c;font-weight:500;margin-bottom:6px;">メニューから追加</div>
+    <select id="add-modal-select" style="width:100%;border:1.5px solid #e7e5e4;border-radius:8px;padding:8px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;">
+      <option value="">選択してください</option>
+    </select>
+    <button onclick="addModalAddItem()" style="width:100%;padding:8px;border:1.5px dashed #d6d3d1;border-radius:8px;background:none;font-family:inherit;font-size:13px;color:#78716c;cursor:pointer;margin-bottom:4px;">＋ 追加する</button>
+    <div class="modal-footer">
+      <button class="modal-cancel" onclick="closeAddModal()">キャンセル</button>
+      <button class="modal-save" onclick="saveNewOrder()">注文を追加する</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
